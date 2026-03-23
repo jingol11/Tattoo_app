@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>Tattoo Studio Pro</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="manifest" href="manifest.json">
+<style>
+body { margin:0; font-family:Arial; background:#0d0d0d; color:#fff; }
+header { padding:15px; text-align:center; font-size:20px; background:#000; }
+.container { padding:15px; }
+input, select, button { width:100%; padding:12px; margin:8px 0; border-radius:10px; border:none; }
+button { background:#c62828; color:white; font-weight:bold; }
+canvas { width:100%; border:2px solid #333; }
+.result { font-size:20px; text-align:center; margin-top:10px; }
+</style>
+</head>
+<body>
+
+<header>💉 Tattoo Studio PRO</header>
+
+<div class="container">
+<input type="file" accept="image/*" capture="environment" id="camera">
+<canvas id="canvas"></canvas>
+
+<p>Tocca 2 punti per larghezza, poi 2 per altezza</p>
+
+<input type="number" id="realSize" placeholder="Misura reale linea (cm)">
+<input type="text" id="cliente" placeholder="Nome cliente">
+
+<button onclick="calcola()">Calcola</button>
+
+<div class="result" id="result"></div>
+</div>
+
+<script>
+let canvas = document.getElementById("canvas");
+let ctx = canvas.getContext("2d");
+let img = new Image();
+let punti = [];
+
+document.getElementById("camera").onchange = e => {
+  img.src = URL.createObjectURL(e.target.files[0]);
+};
+
+img.onload = () => {
+  canvas.width = img.width;
+  canvas.height = img.height;
+  ctx.drawImage(img,0,0);
+  punti = [];
+};
+
+canvas.onclick = e => {
+  if (punti.length >= 4) return;
+  let rect = canvas.getBoundingClientRect();
+  let x = (e.clientX - rect.left) * (canvas.width / rect.width);
+  let y = (e.clientY - rect.top) * (canvas.height / rect.height);
+  punti.push({x,y});
+  ctx.fillStyle = punti.length <= 2 ? "red" : "blue";
+  ctx.beginPath();
+  ctx.arc(x,y,6,0,2*Math.PI);
+  ctx.fill();
+};
+
+function dist(a,b){ return Math.hypot(b.x-a.x, b.y-a.y); }
+
+function getPrezzo(area){
+  if(area<=50)return 80;
+  if(area<=100)return 150;
+  if(area<=200)return 250;
+  return 400;
+}
+
+function calcola(){
+  if(punti.length<4)return alert("Seleziona 4 punti");
+  let real = parseFloat(document.getElementById("realSize").value);
+  if(!real)return alert("Inserisci misura reale");
+
+  let scala = real / dist(punti[0],punti[1]);
+  let larghezza = dist(punti[0],punti[1]) * scala;
+  let altezza = dist(punti[2],punti[3]) * scala;
+  let area = larghezza * altezza;
+  let prezzo = getPrezzo(area);
+
+  result.innerHTML = `📏 ${larghezza.toFixed(1)} x ${altezza.toFixed(1)} cm<br>💰 ${prezzo} €`;
+}
+</script>
+
+</body>
+</html>
