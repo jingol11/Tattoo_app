@@ -1,1 +1,151 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Gallery of Tattoo</title>
+<link rel="manifest" href="manifest.json">
+<style>
+body{margin:0;background:#0d0d0d;color:#fff;font-family:Arial}
+.container{padding:10px}
+button,input{width:100%;padding:10px;margin:5px 0;border-radius:8px;border:none}
+canvas{width:100%;border:2px solid #333;touch-action:none}
+</style>
+</head>
+<body>
 
+<div class="container">
+
+<input type="file" id="file" accept="image/*">
+<canvas id="canvas"></canvas>
+
+<input type="number" id="realRef" placeholder="Larghezza reale tattoo (cm)">
+
+<button onclick="autoDetect()">🤖 AI Auto</button>
+<button onclick="eraseMode()">🧽 Gomma ON/OFF</button>
+<button onclick="clearMask()">🔄 Reset</button>
+<button onclick="calcola()">💰 Calcola</button>
+
+<div id="result"></div>
+
+</div>
+
+<script>
+let canvas=document.getElementById("canvas");
+let ctx=canvas.getContext("2d");
+let img=new Image();
+
+let mask=new Set();
+let bounds=null;
+
+let drawing=false;
+let erase=false;
+
+let scale=1, offsetX=0, offsetY=0;
+let dragging=false,lastX,lastY;
+
+file.onchange=e=>img.src=URL.createObjectURL(e.target.files[0]);
+
+img.onload=()=>{canvas.width=img.width;canvas.height=img.height;draw();}
+
+function draw(){
+ ctx.setTransform(scale,0,0,scale,offsetX,offsetY);
+ ctx.clearRect(-offsetX/scale,-offsetY/scale,canvas.width/scale,canvas.height/scale);
+ ctx.drawImage(img,0,0);
+
+ ctx.fillStyle="lime";
+ mask.forEach(p=>{
+  let [x,y]=p.split(",").map(Number);
+  ctx.fillRect(x,y,1,1);
+ });
+}
+
+canvas.onmousedown=e=>{drawing=true}
+canvas.onmouseup=e=>drawing=false;
+
+canvas.onmousemove=e=>{
+ if(dragging){
+  offsetX+=e.clientX-lastX;
+  offsetY+=e.clientY-lastY;
+  lastX=e.clientX;lastY=e.clientY;
+  draw();
+  return;
+ }
+
+ if(!drawing)return;
+ let rect=canvas.getBoundingClientRect();
+ let x=Math.floor((e.clientX-rect.left-offsetX)/scale);
+ let y=Math.floor((e.clientY-rect.top-offsetY)/scale);
+
+ let key=x+","+y;
+ if(erase) mask.delete(key);
+ else mask.add(key);
+
+ updateBounds();
+ draw();
+}
+
+canvas.onwheel=e=>{
+ e.preventDefault();
+ scale+=e.deltaY*-0.001;
+ scale=Math.min(Math.max(.5,scale),5);
+ draw();
+}
+
+canvas.onmousedown=e=>{dragging=true;lastX=e.clientX;lastY=e.clientY}
+canvas.onmouseup=()=>dragging=false;
+
+function eraseMode(){erase=!erase}
+
+function autoDetect(){
+ let d=ctx.getImageData(0,0,canvas.width,canvas.height).data;
+ mask.clear();
+
+ for(let y=0;y<canvas.height;y++){
+  for(let x=0;x<canvas.width;x++){
+   let i=(y*canvas.width+x)*4;
+   let avg=(d[i]+d[i+1]+d[i+2])/3;
+   if(avg<110) mask.add(x+","+y);
+  }
+ }
+ updateBounds();
+ draw();
+}
+
+function updateBounds(){
+ let minX=9999,minY=9999,maxX=0,maxY=0;
+ mask.forEach(p=>{
+  let [x,y]=p.split(",").map(Number);
+  if(x<minX)minX=x;if(y<minY)minY=y;
+  if(x>maxX)maxX=x;if(y>maxY)maxY=y;
+ });
+ bounds={minX,minY,maxX,maxY};
+}
+
+function clearMask(){mask.clear();draw();}
+
+function getPrezzo(a){
+ if(a<=4)return 80;if(a<=6)return 110;if(a<=8)return 125;if(a<=10)return 140;
+ if(a<=12)return 160;if(a<=16)return 175;if(a<=20)return 190;if(a<=30)return 205;
+ if(a<=40)return 220;if(a<=60)return 235;if(a<=80)return 250;if(a<=100)return 290;
+ if(a<=120)return 315;if(a<=150)return 350;return 410;
+}
+
+function calcola(){
+ if(mask.size==0)return alert("Seleziona area");
+
+ let ref=parseFloat(realRef.value);
+ if(!ref)return alert("Inserisci larghezza reale");
+
+ let pixelWidth=bounds.maxX-bounds.minX;
+ let scala=ref/pixelWidth;
+
+ let area=mask.size*(scala*scala);
+ let prezzo=getPrezzo(area);
+
+ result.innerHTML="Area: "+area.toFixed(1)+" cm²<br>€ "+prezzo;
+}
+</script>
+
+</body>
+</html>
